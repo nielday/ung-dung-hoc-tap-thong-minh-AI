@@ -152,7 +152,7 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
   };
 
   const trackQuizInteraction = (questionId: string, answerIndex: number) => {
-    trackActivity('interaction', 'quiz', undefined, undefined, { 
+    trackActivity('interaction', 'quiz', 5, undefined, { 
       questionId,
       answerIndex,
       timestamp: new Date().toISOString()
@@ -161,7 +161,9 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
 
   const trackQuizCompletion = (score: number, totalQuestions: number) => {
     const completionRate = (score / totalQuestions) * 100;
-    trackActivity('interaction', 'quiz', completionRate, undefined, { 
+    // Scale completion rate to reasonable progress (max 50% for perfect score)
+    const scaledProgress = Math.min(completionRate * 0.5, 50);
+    trackActivity('interaction', 'quiz', scaledProgress, undefined, { 
       score,
       totalQuestions,
       completionRate,
@@ -557,6 +559,12 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
     } finally {
       setIsGeneratingQuiz(false)
       console.log('Quiz generation completed, locale:', locale)
+      
+      // Track quiz generation
+      trackActivity('interaction', 'quiz', 15, undefined, { 
+        action: 'generate_quiz',
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -669,6 +677,12 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
     setQuizScore(0)
     setIsQuizComplete(false)
     
+    // Track quiz start
+    trackActivity('interaction', 'quiz', 10, undefined, { 
+      action: 'start_quiz',
+      timestamp: new Date().toISOString()
+    });
+    
     const session: StudySession = {
       id: Date.now().toString(),
       type: 'quiz',
@@ -694,6 +708,13 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
     if (isCorrect) {
       setQuizScore(prev => prev + 1)
     }
+    
+    // Track answer submission
+    trackActivity('interaction', 'quiz', 8, undefined, { 
+      questionId: currentQuestion.id,
+      isCorrect,
+      timestamp: new Date().toISOString()
+    });
     
     setShowExplanation(true)
   }
