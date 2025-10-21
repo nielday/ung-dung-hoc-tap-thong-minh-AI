@@ -262,6 +262,9 @@ function calculateTabProgress(
       // Tương tác: cộng % dựa trên loại tương tác
       if (progressValue > 0) {
         newProgress = Math.max(newProgress, Math.min(progressValue, 100));
+      } else {
+        // Nếu không có progressValue, cộng 15% cho mỗi lần tương tác
+        newProgress = Math.max(newProgress, Math.min(currentProgress + 15, 100));
       }
       break;
   }

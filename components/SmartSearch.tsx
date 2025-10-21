@@ -373,7 +373,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ lectureData }) => {
     setIsSearching(true);
     
     // Track search interaction
-    trackActivity('interaction', 'search', undefined, undefined, { 
+    trackActivity('interaction', 'search', 25, undefined, { 
       searchQuery: query,
       timestamp: new Date().toISOString()
     });
@@ -1217,13 +1217,24 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ lectureData }) => {
                   {t('search.resultsFound')} ({results.length})
                 </h3>
                 
-                <div className="space-y-3 sm:space-y-4">
+                <div 
+                  className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto"
+                  onScroll={(e) => trackScrollProgress(e.currentTarget, 'search')}
+                >
                   {results.map((result) => (
                     <motion.div
                       key={result.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200 hover:shadow-md transition-shadow"
+                      onClick={() => {
+                        // Track search result click
+                        trackActivity('interaction', 'search', 10, undefined, { 
+                          resultId: result.id,
+                          resultType: result.type,
+                          timestamp: new Date().toISOString()
+                        });
+                      }}
+                      className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-2 sm:mb-3 space-y-2 sm:space-y-0">
                         <div className="flex items-center gap-2">
