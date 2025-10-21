@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/AuthContext'
 import LectureSummary from './LectureSummary'
-import FlashcardCreator from './FlashcardCreator'
+import FlashcardStudy from './FlashcardStudy'
 import SmartSearch from './SmartSearch'
 import AIStudyMode from './AIStudyMode'
 import SettingsModal from './SettingsModal'
@@ -222,7 +222,7 @@ export default function StudentDashboard() {
             {selectedLecture ? (
               <>
                 <h2 className="text-base sm:text-lg lg:text-xl font-semibold mb-4">Flashcards - {selectedLecture.originalName}</h2>
-                <FlashcardCreator lectureData={selectedLecture} />
+                <FlashcardStudy lectureData={selectedLecture} />
               </>
             ) : (
               <div className="text-center py-8 sm:py-12">
