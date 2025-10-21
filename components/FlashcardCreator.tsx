@@ -75,11 +75,22 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
   };
 
   const trackTabVisit = (tabName: string) => {
-    trackActivity('tab_visit', tabName, 10);
+    trackActivity('tab_visit', tabName, 50);
   };
 
   const trackFlashcardInteraction = (action: string, flashcardId?: string) => {
-    trackActivity('interaction', 'flashcard', undefined, undefined, { 
+    // Scale progress based on action
+    let progressValue = 5; // Default for other actions
+    
+    if (action === 'create') {
+      progressValue = 50; // Creating a new card = 50%
+    } else if (action === 'generate_ai') {
+      progressValue = 30; // AI generation = 30%
+    } else if (action === 'delete') {
+      progressValue = 2; // Delete = 2%
+    }
+    
+    trackActivity('interaction', 'flashcard', progressValue, undefined, { 
       action,
       flashcardId,
       timestamp: new Date().toISOString()
