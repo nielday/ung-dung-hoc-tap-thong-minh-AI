@@ -169,7 +169,7 @@ coverage/
 
 # Large data files
 *.csv
-*.json
+# *.json (commented out to allow package.json)
 *.xml
 *.sql
 *.dump
