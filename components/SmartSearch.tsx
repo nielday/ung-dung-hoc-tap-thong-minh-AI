@@ -390,20 +390,85 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ lectureData }) => {
     const contentLower = content.toLowerCase();
     const queryLower = query.toLowerCase();
     
+    // Split query into words for better search
+    const queryWords = queryLower.split(/\s+/).filter(word => word.length > 0);
+    
     if (contentLower.includes(queryLower)) {
-      const position = contentLower.indexOf(queryLower);
-      const start = Math.max(0, position - 100);
-      const end = Math.min(content.length, position + query.length + 100);
-      const excerpt = content.substring(start, end);
+      // Find all occurrences of the exact query
+      let position = 0;
+      let occurrenceCount = 0;
       
-      searchResults.push({
-        id: 'content-1',
-        title: locale === 'vi' ? 'Nội dung chính' : 'Main Content',
-        content: excerpt,
-        type: 'lecture',
-        relevance: 95,
-        position: position
-      });
+      while ((position = contentLower.indexOf(queryLower, position)) !== -1) {
+        occurrenceCount++;
+        const start = Math.max(0, position - 100);
+        const end = Math.min(content.length, position + query.length + 100);
+        const excerpt = content.substring(start, end);
+        
+        searchResults.push({
+          id: `content-exact-${occurrenceCount}`,
+          title: locale === 'vi' ? `Nội dung chính (${occurrenceCount})` : `Main Content (${occurrenceCount})`,
+          content: excerpt,
+          type: 'lecture',
+          relevance: 95,
+          position: position
+        });
+        
+        position += query.length; // Move past this occurrence
+      }
+    }
+    
+    // Search for individual words in the query
+    queryWords.forEach((word, wordIndex) => {
+      if (word.length > 2) { // Only search words longer than 2 characters
+        let position = 0;
+        let occurrenceCount = 0;
+        
+        while ((position = contentLower.indexOf(word, position)) !== -1) {
+          occurrenceCount++;
+          const start = Math.max(0, position - 100);
+          const end = Math.min(content.length, position + word.length + 100);
+          const excerpt = content.substring(start, end);
+          
+          searchResults.push({
+            id: `content-word-${wordIndex}-${occurrenceCount}`,
+            title: locale === 'vi' ? `Từ khóa "${word}" (${occurrenceCount})` : `Keyword "${word}" (${occurrenceCount})`,
+            content: excerpt,
+            type: 'lecture',
+            relevance: 80,
+            position: position
+          });
+          
+          position += word.length; // Move past this occurrence
+        }
+      }
+    });
+    
+    // Fuzzy search for partial matches
+    if (queryWords.length > 0) {
+      const firstWord = queryWords[0];
+      if (firstWord.length > 3) {
+        // Search for words that start with the same letters
+        const words = contentLower.split(/\s+/);
+        words.forEach((word: string, index: number) => {
+          if (word.startsWith(firstWord.substring(0, 3)) && word.length > firstWord.length - 2) {
+            const position = contentLower.indexOf(word);
+            if (position !== -1) {
+              const start = Math.max(0, position - 100);
+              const end = Math.min(content.length, position + word.length + 100);
+              const excerpt = content.substring(start, end);
+              
+              searchResults.push({
+                id: `content-fuzzy-${index}`,
+                title: locale === 'vi' ? `Tìm kiếm mờ: "${word}"` : `Fuzzy search: "${word}"`,
+                content: excerpt,
+                type: 'lecture',
+                relevance: 60,
+                position: position
+              });
+            }
+          }
+        });
+      }
     }
     
     // Search in summary
@@ -428,6 +493,23 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ lectureData }) => {
             content: point.content,
             type: 'flashcard',
             relevance: 85,
+            position: index
+          });
+        }
+      });
+    }
+    
+    // Search in objectives if available
+    if (lectureData.objectives) {
+      lectureData.objectives.forEach((objective: any, index: number) => {
+        if (objective.title.toLowerCase().includes(queryLower) || 
+            objective.description.toLowerCase().includes(queryLower)) {
+          searchResults.push({
+            id: `objective-${index}`,
+            title: locale === 'vi' ? `Mục tiêu ${index + 1}` : `Objective ${index + 1}`,
+            content: `${objective.title}: ${objective.description}`,
+            type: 'flashcard',
+            relevance: 90,
             position: index
           });
         }
