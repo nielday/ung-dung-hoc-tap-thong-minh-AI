@@ -37,11 +37,13 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
   const trackActivity = async (activityType: string, tabName: string, progressValue?: number, duration?: number, metadata?: any) => {
     if (!currentUser?.id || !lectureData?.id) {
       console.log('⚠️ Cannot track activity: missing user or lecture data');
+      console.log('Current user:', currentUser);
+      console.log('Lecture data:', lectureData);
       return;
     }
 
     try {
-      console.log(`📝 Tracking activity: ${activityType} in ${tabName} tab`);
+      console.log(`📝 Tracking activity: ${activityType} in ${tabName} tab with progressValue: ${progressValue}`);
       
       const response = await fetch('/api/study-progress', {
         method: 'POST',

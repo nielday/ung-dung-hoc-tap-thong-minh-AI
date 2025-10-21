@@ -234,10 +234,9 @@ function calculateTabProgress(
 
   switch (activityType) {
     case 'tab_visit':
-      // Truy cập tab: +10% (chỉ cộng nếu chưa có)
-      if (currentProgress < 10) {
-        newProgress = Math.max(newProgress, 10);
-      }
+      // Truy cập tab: cộng progressValue hoặc 10% mặc định
+      const tabProgress = progressValue > 0 ? progressValue : 10;
+      newProgress = Math.max(newProgress, Math.min(currentProgress + tabProgress, 100));
       break;
 
     case 'scroll':
@@ -261,7 +260,8 @@ function calculateTabProgress(
     case 'interaction':
       // Tương tác: cộng % dựa trên loại tương tác
       if (progressValue > 0) {
-        newProgress = Math.max(newProgress, Math.min(progressValue, 100));
+        // Cộng thêm progressValue vào currentProgress
+        newProgress = Math.max(newProgress, Math.min(currentProgress + progressValue, 100));
       } else {
         // Nếu không có progressValue, cộng 15% cho mỗi lần tương tác
         newProgress = Math.max(newProgress, Math.min(currentProgress + 15, 100));
