@@ -96,8 +96,78 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
   const t = useTranslations()
   const locale = useLocale()
   const [activeMode, setActiveMode] = useState<'quiz' | 'review' | 'practice' | 'analytics'>('quiz')
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  
+  // Load current user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setCurrentUser(user);
+  }, []);
+
+  // Study progress tracking functions
+  const trackActivity = async (activityType: string, tabName: string, progressValue?: number, duration?: number, metadata?: any) => {
+    if (!currentUser?.id || !lectureData?.id) {
+      console.log('⚠️ Cannot track activity: missing user or lecture data');
+      return;
+    }
+
+    try {
+      console.log(`📝 Tracking activity: ${activityType} in ${tabName} tab`);
+      
+      const response = await fetch('/api/study-progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          lectureId: lectureData.id,
+          activityType,
+          tabName,
+          progressValue,
+          duration,
+          metadata
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Activity tracked successfully:', data.studyProgress);
+        } else {
+          console.error('❌ Failed to track activity:', data.message);
+        }
+      } else {
+        console.error('❌ HTTP error tracking activity:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error tracking activity:', error);
+    }
+  };
+
+  const trackTabVisit = (tabName: string) => {
+    trackActivity('tab_visit', tabName, 10);
+  };
+
+  const trackQuizInteraction = (questionId: string, answerIndex: number) => {
+    trackActivity('interaction', 'quiz', undefined, undefined, { 
+      questionId,
+      answerIndex,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  const trackQuizCompletion = (score: number, totalQuestions: number) => {
+    const completionRate = (score / totalQuestions) * 100;
+    trackActivity('interaction', 'quiz', completionRate, undefined, { 
+      score,
+      totalQuestions,
+      completionRate,
+      timestamp: new Date().toISOString()
+    });
+  };
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [quizScore, setQuizScore] = useState(0)
@@ -609,6 +679,10 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
 
   const handleAnswerSelect = (answerIndex: number) => {
     setSelectedAnswer(answerIndex)
+    // Track quiz interaction
+    if (quizQuestions[currentQuestionIndex]) {
+      trackQuizInteraction(quizQuestions[currentQuestionIndex].id, answerIndex)
+    }
   }
 
   const submitAnswer = () => {
@@ -636,6 +710,9 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
 
   const completeQuiz = () => {
     setIsQuizComplete(true)
+    // Track quiz completion
+    trackQuizCompletion(quizScore, quizQuestions.length)
+    
     const currentSession = studySessions[studySessions.length - 1]
     if (currentSession) {
       const updatedSession = {
@@ -1377,7 +1454,10 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <motion.button
-          onClick={() => setActiveMode('quiz')}
+          onClick={() => {
+            setActiveMode('quiz')
+            trackTabVisit('quiz')
+          }}
           className="card p-4 sm:p-6 text-center hover:scale-105 transition-transform cursor-pointer"
           whileHover={{ y: -5 }}
         >

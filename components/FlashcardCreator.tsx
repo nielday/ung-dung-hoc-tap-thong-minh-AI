@@ -23,8 +23,68 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
   const t = useTranslations()
   const locale = useLocale()
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
+  
+  // Load current user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setCurrentUser(user);
+  }, []);
+
+  // Study progress tracking functions
+  const trackActivity = async (activityType: string, tabName: string, progressValue?: number, duration?: number, metadata?: any) => {
+    if (!currentUser?.id || !lectureData?.id) {
+      console.log('⚠️ Cannot track activity: missing user or lecture data');
+      return;
+    }
+
+    try {
+      console.log(`📝 Tracking activity: ${activityType} in ${tabName} tab`);
+      
+      const response = await fetch('/api/study-progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          lectureId: lectureData.id,
+          activityType,
+          tabName,
+          progressValue,
+          duration,
+          metadata
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Activity tracked successfully:', data.studyProgress);
+        } else {
+          console.error('❌ Failed to track activity:', data.message);
+        }
+      } else {
+        console.error('❌ HTTP error tracking activity:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error tracking activity:', error);
+    }
+  };
+
+  const trackTabVisit = (tabName: string) => {
+    trackActivity('tab_visit', tabName, 10);
+  };
+
+  const trackFlashcardInteraction = (action: string, flashcardId?: string) => {
+    trackActivity('interaction', 'flashcard', undefined, undefined, { 
+      action,
+      flashcardId,
+      timestamp: new Date().toISOString()
+    });
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   const [hasLectureData, setHasLectureData] = useState(false);
@@ -34,6 +94,13 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
     progress: 0,
     estimatedTime: 30
   });
+
+  // Track tab visit when component mounts
+  useEffect(() => {
+    if (lectureData?.id && currentUser?.id) {
+      trackTabVisit('flashcard');
+    }
+  }, [lectureData?.id, currentUser?.id]);
 
   // Load flashcards from database
   const loadFlashcardsFromDatabase = async () => {
@@ -202,6 +269,9 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
       setTimeout(() => {
         setLoadingState(prev => ({ ...prev, isVisible: false }));
       }, 1000);
+      
+      // Track flashcard generation
+      trackFlashcardInteraction('generate_ai', undefined);
 
     } catch (error) {
       clearInterval(progressInterval);
@@ -229,12 +299,18 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
       
       // Save to database
       await saveFlashcardsToDatabase(updatedFlashcards);
+      
+      // Track flashcard creation
+      trackFlashcardInteraction('create', newFlashcard.id);
     }
   };
 
   const deleteFlashcard = async (id: string) => {
     const updatedFlashcards = flashcards.filter(card => card.id !== id);
     setFlashcards(updatedFlashcards);
+    
+    // Track flashcard deletion
+    trackFlashcardInteraction('delete', id);
     
     // Save to database
     await saveFlashcardsToDatabase(updatedFlashcards);
