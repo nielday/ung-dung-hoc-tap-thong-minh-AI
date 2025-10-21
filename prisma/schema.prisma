@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      String   @default("student") // "teacher" or "student"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  lectures      Lecture[]
+  studyProgress StudyProgress[]
+  studyActivities StudyActivity[]
+  flashcards    Flashcard[]
+  chatLimits    ChatLimit[]
+  
+  // Teacher-Student relationships
+  taughtClasses    TeacherStudent[] @relation("Teacher")
+  enrolledClasses  TeacherStudent[] @relation("Student")
+  
+  // Teacher lectures (lectures created by this teacher)
+  teacherLectures  Lecture[] @relation("TeacherLectures")
+  
+  // Quizzes created by teacher
+  quizzes          Quiz[]
+
+  @@map("users")
+}
+
+// Lecture/File Management
+model Lecture {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id") // Creator (teacher)
+  teacherId       String   @map("teacher_id") // Teacher who owns this lecture
+  filename        String
+  originalName    String   @map("original_name")
+  fileType        String   @map("file_type")
+  fileSize        BigInt   @map("file_size")
+  content         String
+  summaryData     Json?    @map("summary_data")
+  isPublic        Boolean  @default(false) @map("is_public")
+  permissions     Json?    // Array of student IDs who can access
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacher        User           @relation("TeacherLectures", fields: [teacherId], references: [id], onDelete: Cascade)
+  studyProgress  StudyProgress[]
+  studyActivities StudyActivity[]
+  flashcards     Flashcard[]
+  quizzes        Quiz[]
+
+  @@map("lectures")
+}
+
+// Teacher-Student Relationship
+model TeacherStudent {
+  id        String   @id @default(cuid())
+  teacherId String   @map("teacher_id")
+  studentId String   @map("student_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  teacher User @relation("Teacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  student User @relation("Student", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId])
+  @@map("teacher_students")
+}
+
+// Study Progress Tracking
+model StudyProgress {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  lectureId     String   @map("lecture_id")
+  
+  // Tab-based progress tracking
+  searchTabProgress    Float    @default(0) @map("search_tab_progress")     // % hoàn thành tab tìm kiếm
+  chatTabProgress      Float    @default(0) @map("chat_tab_progress")       // % hoàn thành tab chat
+  quizTabProgress      Float    @default(0) @map("quiz_tab_progress")       // % hoàn thành tab quiz
+  flashcardTabProgress Float    @default(0) @map("flashcard_tab_progress")  // % hoàn thành tab flashcard
+  totalProgress        Float    @default(0) @map("total_progress")          // Tổng % hoàn thành
+  
+  // Legacy fields (keep for backward compatibility)
+  quizProgress  Json?    @map("quiz_progress")
+  reviewProgress Json?   @map("review_progress")
+  practiceProgress Json? @map("practice_progress")
+  sessionData   Json?    @map("session_data")
+  
+  // Metadata
+  lastUpdated   DateTime @default(now()) @map("last_updated")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  activities StudyActivity[]
+
+  @@unique([userId, lectureId])
+  @@map("study_progress")
+}
+
+// Study Activities Tracking
+model StudyActivity {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  lectureId     String   @map("lecture_id")
+  studyProgressId String @map("study_progress_id")
+  
+  // Activity details
+  activityType  String   @map("activity_type")  // 'scroll', 'tab_visit', 'time_spent', 'interaction'
+  tabName       String?  @map("tab_name")       // 'search', 'chat', 'quiz', 'flashcard'
+  progressValue Float    @map("progress_value") // % tiến độ (0-100)
+  duration      Int?                            // thời gian (seconds)
+  metadata      Json?                           // JSON data (scroll position, etc.)
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture       Lecture       @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  studyProgress StudyProgress @relation(fields: [studyProgressId], references: [id], onDelete: Cascade)
+
+  @@map("study_activities")
+}
+
+
+// Flashcards
+model Flashcard {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  lectureId     String   @map("lecture_id")
+  frontContent  String   @map("front_content")
+  backContent   String   @map("back_content")
+  difficulty    String   @default("medium")
+  category      String?
+  masteryLevel  Int      @default(0) @map("mastery_level")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@map("flashcards")
+}
+
+// Quiz Management
+model Quiz {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  questions   Json     // Array of question objects
+  difficulty  String   @default("mixed") // "easy", "medium", "hard", "mixed"
+  lectureId   String   @map("lecture_id")
+  teacherId   String   @map("teacher_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+// Chat AI Usage Limits
+model ChatLimit {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  dailyLimit    Int      @default(3) @map("daily_limit") // Số lần chat AI mỗi ngày
+  usedCount     Int      @default(0) @map("used_count") // Số lần đã sử dụng hôm nay
+  lastResetDate DateTime @default(now()) @map("last_reset_date") // Ngày reset cuối cùng
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("chat_limits")
+}
