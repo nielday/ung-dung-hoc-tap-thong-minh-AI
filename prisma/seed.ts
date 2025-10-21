@@ -17,7 +17,7 @@ async function main() {
       password: teacherPassword,
       name: 'Nguyễn Văn Giáo',
       role: 'teacher',
-      avatar: '👨‍🏫'
+      avatar: 'https://ui-avatars.com/api/?name=Teacher&background=4f46e5&color=fff'
     }
   })
 
