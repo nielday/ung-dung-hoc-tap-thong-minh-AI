@@ -152,7 +152,7 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
   };
 
   const trackQuizInteraction = (questionId: string, answerIndex: number) => {
-    trackActivity('interaction', 'quiz', 5, undefined, { 
+    trackActivity('interaction', 'quiz', 2, undefined, { 
       questionId,
       answerIndex,
       timestamp: new Date().toISOString()
@@ -160,13 +160,12 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
   };
 
   const trackQuizCompletion = (score: number, totalQuestions: number) => {
-    const completionRate = (score / totalQuestions) * 100;
-    // Scale completion rate to reasonable progress (max 50% for perfect score)
-    const scaledProgress = Math.min(completionRate * 0.5, 50);
+    // Scale progress: 1 correct answer = 10% progress
+    const scaledProgress = score * 10;
     trackActivity('interaction', 'quiz', scaledProgress, undefined, { 
       score,
       totalQuestions,
-      completionRate,
+      scaledProgress,
       timestamp: new Date().toISOString()
     });
   };
@@ -561,7 +560,7 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
       console.log('Quiz generation completed, locale:', locale)
       
       // Track quiz generation
-      trackActivity('interaction', 'quiz', 15, undefined, { 
+      trackActivity('interaction', 'quiz', 5, undefined, { 
         action: 'generate_quiz',
         timestamp: new Date().toISOString()
       });
@@ -678,7 +677,7 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
     setIsQuizComplete(false)
     
     // Track quiz start
-    trackActivity('interaction', 'quiz', 10, undefined, { 
+    trackActivity('interaction', 'quiz', 5, undefined, { 
       action: 'start_quiz',
       timestamp: new Date().toISOString()
     });
@@ -710,7 +709,7 @@ export default function AIStudyMode({ lectureData }: AIStudyModeProps) {
     }
     
     // Track answer submission
-    trackActivity('interaction', 'quiz', 8, undefined, { 
+    trackActivity('interaction', 'quiz', 3, undefined, { 
       questionId: currentQuestion.id,
       isCorrect,
       timestamp: new Date().toISOString()
