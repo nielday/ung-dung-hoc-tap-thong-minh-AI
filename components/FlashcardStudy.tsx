@@ -24,7 +24,7 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [studyMode, setStudyMode] = useState<'study' | 'review' | 'test'>('study');
+  const [studyMode, setStudyMode] = useState<'study' | 'review' | 'test' | 'manage'>('study');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [studyProgress, setStudyProgress] = useState({
     totalCards: 0,
@@ -34,6 +34,12 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
   });
   const [cardResults, setCardResults] = useState<{[key: string]: 'correct' | 'incorrect' | 'unknown'}>({});
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Management states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
+  const [newCard, setNewCard] = useState({ front: '', back: '', category: 'general', difficulty: 'medium' });
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // Load current user
   useEffect(() => {
@@ -179,6 +185,14 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
       }));
       trackFlashcardStudy('mark_incorrect', currentCard.id);
     }
+    
+    // Auto move to next card after marking
+    setTimeout(() => {
+      if (currentCardIndex < flashcards.length - 1) {
+        setCurrentCardIndex(prev => prev + 1);
+        setIsFlipped(false);
+      }
+    }, 1000); // Wait 1 second before moving
   };
 
   const nextCard = () => {
@@ -209,6 +223,98 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
 
   const completeStudy = () => {
     trackFlashcardStudy('complete_study');
+  };
+
+  // Management functions
+  const addFlashcard = async () => {
+    if (!newCard.front.trim() || !newCard.back.trim()) return;
+    
+    try {
+      const response = await fetch('/api/flashcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          lectureId: lectureData.id,
+          front: newCard.front,
+          back: newCard.back,
+          category: newCard.category,
+          difficulty: newCard.difficulty
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const newFlashcard = {
+            id: data.flashcard.id,
+            front: data.flashcard.frontContent,
+            back: data.flashcard.backContent,
+            category: data.flashcard.category,
+            difficulty: data.flashcard.difficulty,
+            tags: []
+          };
+          setFlashcards(prev => [...prev, newFlashcard]);
+          setStudyProgress(prev => ({ ...prev, totalCards: prev.totalCards + 1 }));
+          setNewCard({ front: '', back: '', category: 'general', difficulty: 'medium' });
+          setShowAddForm(false);
+          trackFlashcardStudy('create', newFlashcard.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error adding flashcard:', error);
+    }
+  };
+
+  const editFlashcard = (card: Flashcard) => {
+    setEditingCard(card);
+    setIsEditing(true);
+  };
+
+  const updateFlashcard = async () => {
+    if (!editingCard) return;
+    
+    try {
+      const response = await fetch(`/api/flashcards/${editingCard.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          front: editingCard.front,
+          back: editingCard.back,
+          category: editingCard.category,
+          difficulty: editingCard.difficulty
+        })
+      });
+      
+      if (response.ok) {
+        setFlashcards(prev => prev.map(card => 
+          card.id === editingCard.id ? editingCard : card
+        ));
+        setIsEditing(false);
+        setEditingCard(null);
+        trackFlashcardStudy('update', editingCard.id);
+      }
+    } catch (error) {
+      console.error('Error updating flashcard:', error);
+    }
+  };
+
+  const deleteFlashcard = async (cardId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa flashcard này?')) return;
+    
+    try {
+      const response = await fetch(`/api/flashcards/${cardId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setFlashcards(prev => prev.filter(card => card.id !== cardId));
+        setStudyProgress(prev => ({ ...prev, totalCards: prev.totalCards - 1 }));
+        trackFlashcardStudy('delete', cardId);
+      }
+    } catch (error) {
+      console.error('Error deleting flashcard:', error);
+    }
   };
 
   if (isLoading) {
@@ -258,6 +364,13 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
             >
               <Target className="w-4 h-4 inline mr-1" />
               Kiểm tra
+            </button>
+            <button
+              onClick={() => setStudyMode('manage')}
+              className={`px-3 py-1 rounded text-sm ${studyMode === 'manage' ? 'bg-purple-100 text-purple-700' : 'text-gray-600'}`}
+            >
+              <BookOpen className="w-4 h-4 inline mr-1" />
+              Quản lý
             </button>
           </div>
         </div>
@@ -396,6 +509,190 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Management Mode */}
+      {studyMode === 'manage' && (
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold">Quản lý Flashcards</h3>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              + Thêm Flashcard
+            </button>
+          </div>
+
+          {/* Add Form */}
+          {showAddForm && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold mb-4">Thêm Flashcard mới</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mặt trước</label>
+                  <textarea
+                    value={newCard.front}
+                    onChange={(e) => setNewCard(prev => ({ ...prev, front: e.target.value }))}
+                    className="w-full p-3 border rounded-lg"
+                    rows={3}
+                    placeholder="Nhập câu hỏi hoặc từ khóa..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mặt sau</label>
+                  <textarea
+                    value={newCard.back}
+                    onChange={(e) => setNewCard(prev => ({ ...prev, back: e.target.value }))}
+                    className="w-full p-3 border rounded-lg"
+                    rows={3}
+                    placeholder="Nhập đáp án hoặc định nghĩa..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Danh mục</label>
+                  <input
+                    type="text"
+                    value={newCard.category}
+                    onChange={(e) => setNewCard(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Danh mục..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Độ khó</label>
+                  <select
+                    value={newCard.difficulty}
+                    onChange={(e) => setNewCard(prev => ({ ...prev, difficulty: e.target.value }))}
+                    className="w-full p-3 border rounded-lg"
+                  >
+                    <option value="easy">Dễ</option>
+                    <option value="medium">Trung bình</option>
+                    <option value="hard">Khó</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={addFlashcard}
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                >
+                  Thêm
+                </button>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Form */}
+          {isEditing && editingCard && (
+            <div className="bg-yellow-50 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold mb-4">Chỉnh sửa Flashcard</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mặt trước</label>
+                  <textarea
+                    value={editingCard.front}
+                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, front: e.target.value } : null)}
+                    className="w-full p-3 border rounded-lg"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mặt sau</label>
+                  <textarea
+                    value={editingCard.back}
+                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, back: e.target.value } : null)}
+                    className="w-full p-3 border rounded-lg"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Danh mục</label>
+                  <input
+                    type="text"
+                    value={editingCard.category || ''}
+                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, category: e.target.value } : null)}
+                    className="w-full p-3 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Độ khó</label>
+                  <select
+                    value={editingCard.difficulty || 'medium'}
+                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, difficulty: e.target.value as 'easy' | 'medium' | 'hard' } : null)}
+                    className="w-full p-3 border rounded-lg"
+                  >
+                    <option value="easy">Dễ</option>
+                    <option value="medium">Trung bình</option>
+                    <option value="hard">Khó</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={updateFlashcard}
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                >
+                  Cập nhật
+                </button>
+                <button
+                  onClick={() => { setIsEditing(false); setEditingCard(null); }}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Flashcards List */}
+          <div className="space-y-4">
+            {flashcards.map((card, index) => (
+              <div key={card.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Mặt trước</div>
+                        <div className="font-medium">{card.front}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Mặt sau</div>
+                        <div className="font-medium">{card.back}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-3 text-sm text-gray-500">
+                      <span>Danh mục: {card.category}</span>
+                      <span>Độ khó: {card.difficulty}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => editFlashcard(card)}
+                      className="text-blue-600 hover:text-blue-800 p-1"
+                      title="Chỉnh sửa"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => deleteFlashcard(card.id)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="Xóa"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
