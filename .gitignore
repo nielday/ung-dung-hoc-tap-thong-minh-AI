@@ -116,6 +116,9 @@ Thumbs.db
 # Vercel
 .vercel
 
+# Railway
+# railway.json
+
 # Prisma
 prisma/migrations/
 /app/generated/prisma
