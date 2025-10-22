@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { RotateCcw, CheckCircle, XCircle, ArrowLeft, ArrowRight, BookOpen, Brain, Target } from 'lucide-react';
+import { RotateCcw, CheckCircle, XCircle, ArrowLeft, ArrowRight, BookOpen, Brain, Target, Plus } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
+import FlashcardManager from './FlashcardManager';
 
 interface Flashcard {
   id: string;
@@ -36,10 +37,8 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
   const [isLoading, setIsLoading] = useState(true);
   
   // Management states
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
-  const [newCard, setNewCard] = useState({ front: '', back: '', category: 'general', difficulty: 'medium' });
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [editingFlashcard, setEditingFlashcard] = useState<Flashcard | null>(null);
 
   // Load current user
   useEffect(() => {
@@ -226,9 +225,7 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
   };
 
   // Management functions
-  const addFlashcard = async () => {
-    if (!newCard.front.trim() || !newCard.back.trim()) return;
-    
+  const handleAddFlashcard = async (flashcard: Flashcard) => {
     try {
       const response = await fetch('/api/flashcards', {
         method: 'POST',
@@ -236,10 +233,10 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
         body: JSON.stringify({
           userId: currentUser.id,
           lectureId: lectureData.id,
-          front: newCard.front,
-          back: newCard.back,
-          category: newCard.category,
-          difficulty: newCard.difficulty
+          front: flashcard.front,
+          back: flashcard.back,
+          category: flashcard.category,
+          difficulty: flashcard.difficulty
         })
       });
       
@@ -256,8 +253,6 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
           };
           setFlashcards(prev => [...prev, newFlashcard]);
           setStudyProgress(prev => ({ ...prev, totalCards: prev.totalCards + 1 }));
-          setNewCard({ front: '', back: '', category: 'general', difficulty: 'medium' });
-          setShowAddForm(false);
           trackFlashcardStudy('create', newFlashcard.id);
         }
       }
@@ -266,42 +261,31 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
     }
   };
 
-  const editFlashcard = (card: Flashcard) => {
-    setEditingCard(card);
-    setIsEditing(true);
-  };
-
-  const updateFlashcard = async () => {
-    if (!editingCard) return;
-    
+  const handleUpdateFlashcard = async (flashcard: Flashcard) => {
     try {
-      const response = await fetch(`/api/flashcards/${editingCard.id}`, {
+      const response = await fetch(`/api/flashcards/${flashcard.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          front: editingCard.front,
-          back: editingCard.back,
-          category: editingCard.category,
-          difficulty: editingCard.difficulty
+          front: flashcard.front,
+          back: flashcard.back,
+          category: flashcard.category,
+          difficulty: flashcard.difficulty
         })
       });
       
       if (response.ok) {
         setFlashcards(prev => prev.map(card => 
-          card.id === editingCard.id ? editingCard : card
+          card.id === flashcard.id ? flashcard : card
         ));
-        setIsEditing(false);
-        setEditingCard(null);
-        trackFlashcardStudy('update', editingCard.id);
+        trackFlashcardStudy('update', flashcard.id);
       }
     } catch (error) {
       console.error('Error updating flashcard:', error);
     }
   };
 
-  const deleteFlashcard = async (cardId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa flashcard này?')) return;
-    
+  const handleDeleteFlashcard = async (cardId: string) => {
     try {
       const response = await fetch(`/api/flashcards/${cardId}`, {
         method: 'DELETE'
@@ -315,6 +299,16 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
     } catch (error) {
       console.error('Error deleting flashcard:', error);
     }
+  };
+
+  const openManager = (flashcard?: Flashcard) => {
+    setEditingFlashcard(flashcard || null);
+    setIsManagerOpen(true);
+  };
+
+  const closeManager = () => {
+    setIsManagerOpen(false);
+    setEditingFlashcard(null);
   };
 
   if (isLoading) {
@@ -516,139 +510,13 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold">Quản lý Flashcards</h3>
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+              onClick={() => openManager()}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
             >
-              + Thêm Flashcard
+              <Plus className="w-4 h-4" />
+              Quản lý Flashcards
             </button>
           </div>
-
-          {/* Add Form */}
-          {showAddForm && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold mb-4">Thêm Flashcard mới</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mặt trước</label>
-                  <textarea
-                    value={newCard.front}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, front: e.target.value }))}
-                    className="w-full p-3 border rounded-lg"
-                    rows={3}
-                    placeholder="Nhập câu hỏi hoặc từ khóa..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mặt sau</label>
-                  <textarea
-                    value={newCard.back}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, back: e.target.value }))}
-                    className="w-full p-3 border rounded-lg"
-                    rows={3}
-                    placeholder="Nhập đáp án hoặc định nghĩa..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Danh mục</label>
-                  <input
-                    type="text"
-                    value={newCard.category}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full p-3 border rounded-lg"
-                    placeholder="Danh mục..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Độ khó</label>
-                  <select
-                    value={newCard.difficulty}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, difficulty: e.target.value }))}
-                    className="w-full p-3 border rounded-lg"
-                  >
-                    <option value="easy">Dễ</option>
-                    <option value="medium">Trung bình</option>
-                    <option value="hard">Khó</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={addFlashcard}
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-                >
-                  Thêm
-                </button>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Edit Form */}
-          {isEditing && editingCard && (
-            <div className="bg-yellow-50 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold mb-4">Chỉnh sửa Flashcard</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mặt trước</label>
-                  <textarea
-                    value={editingCard.front}
-                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, front: e.target.value } : null)}
-                    className="w-full p-3 border rounded-lg"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mặt sau</label>
-                  <textarea
-                    value={editingCard.back}
-                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, back: e.target.value } : null)}
-                    className="w-full p-3 border rounded-lg"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Danh mục</label>
-                  <input
-                    type="text"
-                    value={editingCard.category || ''}
-                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, category: e.target.value } : null)}
-                    className="w-full p-3 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Độ khó</label>
-                  <select
-                    value={editingCard.difficulty || 'medium'}
-                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, difficulty: e.target.value as 'easy' | 'medium' | 'hard' } : null)}
-                    className="w-full p-3 border rounded-lg"
-                  >
-                    <option value="easy">Dễ</option>
-                    <option value="medium">Trung bình</option>
-                    <option value="hard">Khó</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={updateFlashcard}
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-                >
-                  Cập nhật
-                </button>
-                <button
-                  onClick={() => { setIsEditing(false); setEditingCard(null); }}
-                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Flashcards List */}
           <div className="space-y-4">
@@ -673,14 +541,14 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
                   </div>
                   <div className="flex gap-2 ml-4">
                     <button
-                      onClick={() => editFlashcard(card)}
+                      onClick={() => openManager(card)}
                       className="text-blue-600 hover:text-blue-800 p-1"
                       title="Chỉnh sửa"
                     >
                       ✏️
                     </button>
                     <button
-                      onClick={() => deleteFlashcard(card.id)}
+                      onClick={() => handleDeleteFlashcard(card.id)}
                       className="text-red-600 hover:text-red-800 p-1"
                       title="Xóa"
                     >
@@ -693,6 +561,17 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
           </div>
         </div>
       )}
+
+      {/* Flashcard Manager Modal */}
+      <FlashcardManager
+        isOpen={isManagerOpen}
+        onClose={closeManager}
+        onSave={handleAddFlashcard}
+        onUpdate={handleUpdateFlashcard}
+        onDelete={handleDeleteFlashcard}
+        editingFlashcard={editingFlashcard}
+        flashcards={flashcards}
+      />
     </div>
   );
 };
