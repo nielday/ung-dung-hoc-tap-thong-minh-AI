@@ -506,63 +506,22 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
         </button>
       </div>
 
-      {/* Management Mode */}
+      {/* Management Mode - Only show button, no inline list */}
       {studyMode === 'manage' && (
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold">Quản lý Flashcards</h3>
+          <div className="text-center">
+            <h3 className="text-lg font-semibold mb-4">Quản lý Flashcards</h3>
+            <p className="text-gray-600 mb-6">Sử dụng nút bên dưới để thêm, sửa hoặc xóa flashcards</p>
             <button
               onClick={() => {
                 console.log('🔧 Button clicked! Opening manager...');
                 openManager();
               }}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+              className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 mx-auto"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-5 h-5" />
               Quản lý Flashcards
             </button>
-          </div>
-
-          {/* Flashcards List */}
-          <div className="space-y-4">
-            {flashcards.map((card, index) => (
-              <div key={card.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-sm text-gray-500 mb-1">Mặt trước</div>
-                        <div className="font-medium">{card.front}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500 mb-1">Mặt sau</div>
-                        <div className="font-medium">{card.back}</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-4 mt-3 text-sm text-gray-500">
-                      <span>Danh mục: {card.category}</span>
-                      <span>Độ khó: {card.difficulty}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => openManager(card)}
-                      className="text-blue-600 hover:text-blue-800 p-1"
-                      title="Chỉnh sửa"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDeleteFlashcard(card.id)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="Xóa"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
