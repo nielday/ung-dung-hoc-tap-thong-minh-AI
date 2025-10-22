@@ -302,8 +302,10 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
   };
 
   const openManager = (flashcard?: Flashcard) => {
+    console.log('🔧 Opening FlashcardManager:', { flashcard, isManagerOpen });
     setEditingFlashcard(flashcard || null);
     setIsManagerOpen(true);
+    console.log('🔧 FlashcardManager should be open now');
   };
 
   const closeManager = () => {
@@ -510,7 +512,10 @@ const FlashcardStudy: React.FC<FlashcardStudyProps> = ({ lectureData }) => {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold">Quản lý Flashcards</h3>
             <button
-              onClick={() => openManager()}
+              onClick={() => {
+                console.log('🔧 Button clicked! Opening manager...');
+                openManager();
+              }}
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
