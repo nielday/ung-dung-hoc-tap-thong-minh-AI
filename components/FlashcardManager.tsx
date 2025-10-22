@@ -37,7 +37,7 @@ const FlashcardManager: React.FC<FlashcardManagerProps> = ({
   const [front, setFront] = useState(editingFlashcard?.front || '');
   const [back, setBack] = useState(editingFlashcard?.back || '');
   const [category, setCategory] = useState(editingFlashcard?.category || '');
-  const [difficulty, setDifficulty] = useState(editingFlashcard?.difficulty || 'medium');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(editingFlashcard?.difficulty || 'medium');
   const [tags, setTags] = useState(editingFlashcard?.tags?.join(', ') || '');
 
   const handleSave = () => {
@@ -165,7 +165,7 @@ const FlashcardManager: React.FC<FlashcardManagerProps> = ({
                   </label>
                   <select
                     value={difficulty}
-                    onChange={(e) => setDifficulty(e.target.value)}
+                    onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="easy">{t('flashcards.easy')}</option>
