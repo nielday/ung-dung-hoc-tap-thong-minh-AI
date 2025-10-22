@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit3, Trash2, Sparkles, Brain } from 'lucide-react';
+import { Plus, Edit3, Trash2, Sparkles, Brain, Settings } from 'lucide-react';
 import LoadingProgress from './LoadingProgress';
+import FlashcardManager from './FlashcardManager';
 import { useTranslations, useLocale } from 'next-intl';
 
 interface Flashcard {
@@ -24,8 +25,8 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
   const locale = useLocale()
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [front, setFront] = useState('');
-  const [back, setBack] = useState('');
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [editingFlashcard, setEditingFlashcard] = useState<Flashcard | null>(null);
   
   // Load current user
   useEffect(() => {
@@ -98,7 +99,6 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
       timestamp: new Date().toISOString()
     });
   };
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   const [hasLectureData, setHasLectureData] = useState(false);
   const [loadingState, setLoadingState] = useState({
@@ -298,27 +298,31 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
     }
   };
 
-  const addFlashcard = async () => {
-    if (front.trim() && back.trim()) {
-      const newFlashcard: Flashcard = {
-        id: Date.now().toString(),
-        front: front.trim(),
-        back: back.trim(),
-      };
-      const updatedFlashcards = [...flashcards, newFlashcard];
-      setFlashcards(updatedFlashcards);
-      setFront('');
-      setBack('');
-      
-      // Save to database
-      await saveFlashcardsToDatabase(updatedFlashcards);
-      
-      // Track flashcard creation
-      trackFlashcardInteraction('create', newFlashcard.id);
-    }
+  const handleAddFlashcard = async (flashcard: Flashcard) => {
+    const updatedFlashcards = [...flashcards, flashcard];
+    setFlashcards(updatedFlashcards);
+    
+    // Save to database
+    await saveFlashcardsToDatabase(updatedFlashcards);
+    
+    // Track flashcard creation
+    trackFlashcardInteraction('create', flashcard.id);
   };
 
-  const deleteFlashcard = async (id: string) => {
+  const handleUpdateFlashcard = async (flashcard: Flashcard) => {
+    const updatedFlashcards = flashcards.map(card =>
+      card.id === flashcard.id ? flashcard : card
+    );
+    setFlashcards(updatedFlashcards);
+    
+    // Save to database
+    await saveFlashcardsToDatabase(updatedFlashcards);
+    
+    // Track flashcard update
+    trackFlashcardInteraction('update', flashcard.id);
+  };
+
+  const handleDeleteFlashcard = async (id: string) => {
     const updatedFlashcards = flashcards.filter(card => card.id !== id);
     setFlashcards(updatedFlashcards);
     
@@ -329,33 +333,14 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
     await saveFlashcardsToDatabase(updatedFlashcards);
   };
 
-  const startEditing = (flashcard: Flashcard) => {
-    setEditingId(flashcard.id);
-    setFront(flashcard.front);
-    setBack(flashcard.back);
+  const openManager = (flashcard?: Flashcard) => {
+    setEditingFlashcard(flashcard || null);
+    setIsManagerOpen(true);
   };
 
-  const saveEdit = async () => {
-    if (editingId && front.trim() && back.trim()) {
-      const updatedFlashcards = flashcards.map(card =>
-        card.id === editingId
-          ? { ...card, front: front.trim(), back: back.trim() }
-          : card
-      );
-      setFlashcards(updatedFlashcards);
-      setEditingId(null);
-      setFront('');
-      setBack('');
-      
-      // Save to database
-      await saveFlashcardsToDatabase(updatedFlashcards);
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setFront('');
-    setBack('');
+  const closeManager = () => {
+    setIsManagerOpen(false);
+    setEditingFlashcard(null);
   };
 
   if (isGeneratingFlashcards) {
@@ -381,16 +366,25 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
             {t('flashcards.title')} {t('common.with')} AI
           </h2>
-          {hasLectureData && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            {hasLectureData && (
+              <button
+                onClick={generateFlashcardsFromContent}
+                disabled={isGeneratingFlashcards}
+                className="bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto"
+              >
+                <Brain className="w-4 h-4" />
+                {t('flashcards.createWithAI')}
+              </button>
+            )}
             <button
-              onClick={generateFlashcardsFromContent}
-              disabled={isGeneratingFlashcards}
-              className="bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto"
+              onClick={() => openManager()}
+              className="bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto"
             >
-              <Brain className="w-4 h-4" />
-              {t('flashcards.createWithAI')}
+              <Plus className="w-4 h-4" />
+              {t('flashcards.manageFlashcards')}
             </button>
-          )}
+          </div>
         </div>
         
         {hasLectureData && flashcards.length > 0 && (
@@ -400,68 +394,6 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
             </p>
           </div>
         )}
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('flashcards.frontSide')}
-            </label>
-            <textarea
-              value={front}
-              onChange={(e) => setFront(e.target.value)}
-              placeholder={t('flashcards.enterQuestion')}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-              rows={3}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('flashcards.backSide')}
-            </label>
-            <textarea
-              value={back}
-              onChange={(e) => setBack(e.target.value)}
-              placeholder={t('flashcards.enterAnswer')}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          {editingId ? (
-            <>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={saveEdit}
-                className="bg-green-500 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base w-full sm:w-auto"
-              >
-                <Edit3 size={16} />
-                {t('flashcards.saveChanges')}
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={cancelEdit}
-                className="bg-gray-500 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base w-full sm:w-auto"
-              >
-                {t('common.cancel')}
-              </motion.button>
-            </>
-          ) : (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={addFlashcard}
-              className="bg-blue-500 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base w-full sm:w-auto"
-            >
-              <Plus size={16} />
-              {t('flashcards.addFlashcard')}
-            </motion.button>
-          )}
-        </div>
       </div>
 
       {flashcards.length > 0 && (
@@ -524,16 +456,16 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
                 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => startEditing(flashcard)}
+                    onClick={() => openManager(flashcard)}
                     className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
-                    title="Edit"
+                    title={t('flashcards.edit')}
                   >
                     <Edit3 size={14} className="sm:w-4 sm:h-4" />
                   </button>
                   <button
-                    onClick={() => deleteFlashcard(flashcard.id)}
+                    onClick={() => handleDeleteFlashcard(flashcard.id)}
                     className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
-                    title="Delete"
+                    title={t('flashcards.delete')}
                   >
                     <Trash2 size={14} className="sm:w-4 sm:h-4" />
                   </button>
@@ -554,6 +486,17 @@ const FlashcardCreator: React.FC<FlashcardCreatorProps> = ({ lectureData }) => {
           setLoadingState(prev => ({ ...prev, isVisible: false }))
           // TODO: Implement actual cancellation logic
         }}
+      />
+
+      {/* Flashcard Manager Modal */}
+      <FlashcardManager
+        isOpen={isManagerOpen}
+        onClose={closeManager}
+        onSave={handleAddFlashcard}
+        onUpdate={handleUpdateFlashcard}
+        onDelete={handleDeleteFlashcard}
+        editingFlashcard={editingFlashcard}
+        flashcards={flashcards}
       />
     </div>
   );
